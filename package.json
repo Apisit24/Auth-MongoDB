@@ -7,5 +7,18 @@
   },
   "devDependencies": {
     "prettier": "3.1.0"
-  }
+  },
+  "name": "secrets---starting-code",
+  "version": "1.0.0",
+  "description": "Practice Auth",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "Auth-MongoDB"
+  },
+  "author": "Apisit Mudsang",
+  "license": "ISC"
 }
