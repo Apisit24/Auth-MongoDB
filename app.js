@@ -33,6 +33,7 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String,
+  secret: String,
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -42,15 +43,29 @@ const User = new mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy());
 
-passport.serializeUser(function (user, done) {
-  done(null, user.id);
-});
-
-passport.deserializeUser(function (id, done) {
-  User.findById(id, function (err, user) {
-    done(err, user);
+passport.serializeUser(function (user, cb) {
+  process.nextTick(function () {
+    return cb(null, {
+      id: user.id,
+    });
   });
 });
+
+passport.deserializeUser(function (user, cb) {
+  process.nextTick(function () {
+    return cb(null, user);
+  });
+});
+
+// passport.serializeUser(function (user, done) {
+//   done(null, user.id);
+// });
+
+// passport.deserializeUser(function (id, done) {
+//   User.findById(id, function (err, user) {
+//     done(err, user);
+//   });
+// });
 
 passport.use(
   new GoogleStrategy(
@@ -82,8 +97,7 @@ app.get(
   "/auth/google/secrets",
   passport.authenticate("google", { failureRedirect: "/login" }),
   function (req, res) {
-    // Successful authentication, redirect home.
-    res.redirect("/");
+    res.redirect("/secrets");
   }
 );
 
@@ -95,16 +109,47 @@ app.get("/register", (req, res) => {
   res.render("register");
 });
 
-app.get("/secrets", (req, res) => {
+app.get("/secrets", function (req, res) {
+  User.find({ secret: { $ne: null } })
+    .then((foundUsers) => {
+      if (foundUsers) {
+        res.render("secrets", { usersWithSecrets: foundUsers });
+      }
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+});
+
+app.get("/submit", function (req, res) {
   if (req.isAuthenticated()) {
-    res.render("secrets");
+    res.render("submit");
   } else {
     res.redirect("/login");
   }
 });
 
-app.get("/logout", (req, res) => {
-  req.logout(function (err) {
+app.post("/submit", function (req, res) {
+  const submittedSecret = req.body.secret;
+
+  User.findById(req.user.id)
+    .then((foundUser) => {
+      if (foundUser) {
+        foundUser.secret = submittedSecret;
+        foundUser.save().then(() => {
+          res.redirect("/secrets");
+        });
+      } else {
+        console.log("User not found");
+      }
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+});
+
+app.get("/logout", function (req, res) {
+  req.logout((err) => {
     if (err) {
       console.log(err);
     } else {
@@ -113,23 +158,24 @@ app.get("/logout", (req, res) => {
   });
 });
 
-app.post("/register", (req, res) => {
+app.post("/register", function (req, res) {
   User.register(
     { username: req.body.username },
     req.body.password,
     function (err, user) {
       if (err) {
         console.log(err);
+        res.redirect("/register");
       } else {
         passport.authenticate("local")(req, res, function () {
-          res.redirect("secrets");
+          res.redirect("/secrets");
         });
       }
     }
   );
 });
 
-app.post("/login", (req, res) => {
+app.post("/login", function (req, res) {
   const user = new User({
     username: req.body.username,
     password: req.body.password,
@@ -140,7 +186,7 @@ app.post("/login", (req, res) => {
       console.log(err);
     } else {
       passport.authenticate("local")(req, res, function () {
-        res.redirect("secrets");
+        res.redirect("/secrets");
       });
     }
   });
